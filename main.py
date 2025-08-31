@@ -57,11 +57,20 @@ if not collection.count():
   
 job = json_response[0]  
         
-links = collection.query(
+query_result = collection.query(
     query_texts=job['skills'],
     n_results=2,
 ).get("metadatas", [])
-print(links)
+# print(links)
+
+if isinstance(query_result, list):
+    query_result = query_result[0]
+
+docs = query_result.get("documents", [])
+metas = query_result.get("metadatas", [])
+
+all_links = [meta["links"] for sublist in metas for meta in sublist]
+all_techstack = [doc for sublist in docs for doc in sublist]
 
 prompt_email = PromptTemplate.from_template(
     """
@@ -104,3 +113,15 @@ prompt_email = PromptTemplate.from_template(
     - NO PREAMBLE, no explanations, no markdown formatting
     """
 )
+
+chain_email = prompt_email | llm
+response_email = chain_email.invoke({
+    "role": job['role'],
+    "experience": job['experience'],
+    "skills": ", ".join(job['skills']),
+    "location": job['location'],
+    "description": job['description'],
+    "techstack": ", ".join(all_techstack),
+    "links": ", ".join(all_links),
+})
+print(response_email.content)
